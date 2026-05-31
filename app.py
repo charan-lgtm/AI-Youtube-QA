@@ -4,11 +4,11 @@ from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api._errors import NoTranscriptFound, TranscriptsDisabled
 import requests
 import os 
-import faiss
+
 import numpy as np
 from urllib.parse import urlparse,parse_qs
 from sentence_transformers import SentenceTransformer
-from sklearn.metrics.pairwise import cosine_similarity
+
 #setup
 load_dotenv()
 model = SentenceTransformer("all-MiniLM-L6-v2")
@@ -82,24 +82,19 @@ def chunk_text(text,chunk_size=500):
         chunks.append(chunk)
     return chunks
 
-def build_faiss(chunks):
-   
+def build_embeddings(chunks):
     embeddings = model.encode(chunks).astype("float32")
+    return embeddings
 
-    dim = embeddings.shape[1]
-    index = faiss.IndexFlatL2(dim)
+def search(question, chunks, embeddings):
+    q_embedding = model.encode([question]).astype("float32")[0]
 
-    index.add(embeddings)
+    scores = cosine_similarity([q_embedding], embeddings)[0]
 
-    return index, embeddings
+    top_k = 3
+    top_indices = scores.argsort()[-top_k:][::-1]
 
-def search(question, index, chunks):
-    
-    q_embedding = model.encode([question]).astype("float32")
-
-    D, I = index.search(q_embedding, k=3)
-
-    return [chunks[i] for i in I[0]]
+    return [chunks[i] for i in top_indices]
 
 def Openrouter(question,context):
     OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
@@ -185,9 +180,9 @@ def youtube():
     chunks = chunk_text(text)
     print("NUMBER OF CHUNKS:", len(chunks))
 
-    index,chunk_embeddings=build_faiss(chunks)
+    embeddings = build_embeddings(chunks)
 
-    top_chunks = search(question,index,chunks)
+    top_chunks = search(question, chunks, embeddings)
 
     print("TOP CHUNK:")
     print(top_chunks[0])
