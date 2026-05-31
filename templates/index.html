@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>YouTube AI Chat</title>
+
+    <style>
+       body {
+            margin: 0;
+            font-family: system-ui, Arial;
+            background: #0f0f10;
+            color: #fff;
+            overflow: hidden; /* 🚫 disables page scroll */
+        }
+
+        /* MAIN GRID LAYOUT */
+        .container {
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            height: 100vh;
+        }
+
+/* LEFT PANEL (URL + CONTROLS) */
+        .sidebar {
+            background: #151517;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            border-right: 1px solid #222;
+        }
+
+        .sidebar input {
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #2a2a2d;
+            background: #0f0f10;
+            color: white;
+            outline: none;
+        }
+
+        .sidebar button {
+            padding: 12px;
+            border-radius: 8px;
+            border: none;
+            background: white;
+            color: black;
+            cursor: pointer;
+        }
+
+/* RIGHT SIDE (VIDEO + CHAT) */
+        .main {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+/* VIDEO SECTION (FIXED HEIGHT) */
+        .video-box {
+            height: 260px;
+            background: black;
+            border-bottom: 1px solid #222;
+        }
+
+        .video-box iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+/* CHAT SECTION (ONLY THIS SCROLLS) */
+        .messages {
+            flex: 1;
+            overflow-y: auto;   /* ✅ chat scroll only */
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+/* CHAT BUBBLES */
+        .msg {
+            max-width: 70%;
+            padding: 10px 14px;
+            border-radius: 10px;
+            font-size: 14px;
+            line-height: 1.4;
+            white-space: pre-wrap;
+        }
+
+        .user {
+            align-self: flex-end;
+            background: #2b2b2e;
+        }
+
+        .bot {
+            align-self: flex-start;
+            background: #1a1a1c;
+            border: 1px solid #2a2a2d;
+        }
+
+/* INPUT BAR FIXED BOTTOM */
+        .input-bar {
+            display: flex;
+            gap: 10px;
+            padding: 12px;
+            border-top: 1px solid #222;
+            background: #151517;
+            flex-shrink: 0;
+        }
+
+        .input-bar input {
+            flex: 1;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #2a2a2d;
+            background: #0f0f10;
+            color: white;
+    }
+
+        .input-bar button {
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: none;
+            background: white;
+            color: black;
+            cursor: pointer;
+        }
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+    </style>
+</head>
+
+<body>
+<div class="container">
+
+    <!-- LEFT PANEL -->
+    <div class="sidebar">
+        <h3>YouTube AI</h3>
+
+        <input type="url" id="videoUrl" placeholder="Paste YouTube URL">
+        <button onclick="loadVideo()">Load Video</button>
+
+        <p id="status"></p>
+    </div>
+
+    <!-- RIGHT SIDE -->
+    <div class="main chat-container">
+
+        <div class="video-box" id="videoBox"></div>
+
+        <div class="messages" id="chatBox"></div>
+
+        <div class="input-bar">
+            <input type="text" id="question" placeholder="Ask something...">
+            <button onclick="sendMessage()">Send</button>
+        </div>
+
+    </div>
+
+</div>
+
+
+<script>
+
+
+function getVideoId(url) {
+    const regExp = /(?:youtube\.com.*v=|youtu\.be\/)([^&?/]+)/;
+    const match = url.match(regExp);
+    return match ? match[1] : null;
+}
+function loadVideo() {
+    const url = document.getElementById("videoUrl").value;
+    currentVideo = url;
+
+    const videoId = getVideoId(url);
+
+    if (!videoId) {
+        alert("Invalid YouTube URL");
+        return;
+    }
+
+    document.getElementById("videoBox").innerHTML = `
+        <iframe
+            src="https://www.youtube.com/embed/${videoId}"
+            allowfullscreen>
+        </iframe>
+    `;
+}
+
+/* ADD MESSAGE TO CHAT */
+function addMessage(text, type) {
+    const div = document.createElement("div");
+    div.classList.add("msg", type);
+    div.innerText = text;
+
+    const chatBox = document.getElementById("chatBox");
+    chatBox.appendChild(div);
+
+    // 🔥 AUTO SCROLL TO BOTTOM (important)
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+/* SEND QUESTION */
+async function sendMessage() {
+
+    const question = document.getElementById("question").value;
+    document.getElementById("question").value = "";
+
+    if (!question || !currentVideo) {
+        alert("Load video and enter question");
+        return;
+    }
+
+    // 1. Show user message
+    addMessage(question, "user");
+
+    // 2. Show analyzing message (TEMP)
+    const loadingId = "loading-" + Date.now();
+
+    const loadingDiv = document.createElement("div");
+    loadingDiv.classList.add("msg", "bot","loading");
+    loadingDiv.id = loadingId;
+    loadingDiv.innerText = "🤖 Analyzing question...";
+    document.getElementById("chatBox").appendChild(loadingDiv);
+
+    document.getElementById("chatBox").scrollTop =
+        document.getElementById("chatBox").scrollHeight;
+
+    // 3. Call backend
+    const formData = new FormData();
+    formData.append("video_url", currentVideo);
+    formData.append("question", question);
+
+    const response = await fetch("/youtube", {
+        method: "POST",
+        body: formData
+    });
+
+    const data = await response.json();
+
+    // 4. Remove loading message
+    document.getElementById(loadingId).remove();
+
+    // 5. Show final answer
+    addMessage(
+        data.answer || data.error || "No response",
+        "bot"
+    );
+}
+
+</script>
+
+</body>
+</html>

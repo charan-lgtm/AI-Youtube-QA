@@ -1,0 +1,39 @@
+# =====================
+# Python
+# =====================
+__pycache__/
+*.py[cod]
+
+# virtual environment
+venv/
+
+# =====================
+# Environment variables
+# =====================
+.env
+
+# =====================
+# Flask / runtime
+# =====================
+instance/
+.webassets-cache/
+
+# =====================
+# AI / ML caches
+# =====================
+sentence_transformers/
+huggingface/
+.cache/
+
+# =====================
+# FAISS indexes
+# =====================
+*.faiss
+*.index
+
+
+
+# =====================
+# Logs
+# =====================
+*.log
