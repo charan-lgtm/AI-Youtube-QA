@@ -6,4 +6,4 @@ numpy
 scikit-learn
 sentence-transformers
 youtube-transcript-api
-faiss-cpu==1.14.2
+
