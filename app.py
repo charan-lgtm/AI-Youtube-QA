@@ -34,41 +34,24 @@ def extract_video_id(url):
         return parsed_url.path.split("/")[-1]
 
     return None
+from youtube_transcript_api import YouTubeTranscriptApi
+
 def extract_transcript(youtube_url):
     video_id = extract_video_id(youtube_url)
 
     if not video_id:
         return None
 
-    # 🔁 Try direct transcript first (fastest)
-    for i in range(2):
-        try:
-            transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=['en'])
-
-            text = " ".join([item["text"] for item in transcript])
-            return text
-
-        except Exception as e:
-            print(f"Direct attempt {i+1} failed:", e)
-
-    # 🔁 Fallback: auto-generated transcripts
     try:
-        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+        transcript = YouTubeTranscriptApi.get_transcript(video_id)
 
-        # try English generated
-        try:
-            transcript = transcript_list.find_generated_transcript(['en']).fetch()
-
-        except:
-            # last fallback: take any available transcript
-            transcript = next(iter(transcript_list)).fetch()
-
-        text = " ".join([item.text for item in transcript])
+        text = " ".join([item["text"] for item in transcript])
         return text
 
-    except Exception as e2:
-        print("Fallback failed:", e2)
-        return None#chunks
+    except Exception as e:
+        print("Transcript error:", e)
+        return None
+#chunks
 def chunk_text(text,chunk_size=500):
     words = text.split()
 
