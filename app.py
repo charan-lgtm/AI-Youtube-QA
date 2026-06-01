@@ -34,23 +34,21 @@ def extract_video_id(url):
         return parsed_url.path.split("/")[-1]
 
     return None
-from youtube_transcript_api import YouTubeTranscriptApi
-
 def extract_transcript(youtube_url):
     video_id = extract_video_id(youtube_url)
 
     if not video_id:
+        print("Invalid YouTube URL")
         return None
 
-    try:
-        transcript = YouTubeTranscriptApi.get_transcript(video_id)
+    transcript = safe_get_transcript(video_id)
 
-        text = " ".join([item["text"] for item in transcript])
-        return text
-
-    except Exception as e:
-        print("Transcript error:", e)
+    if not transcript:
+        print("Transcript unavailable")
         return None
+
+    text = " ".join(item["text"] for item in transcript)
+    return text
 #chunks
 def chunk_text(text,chunk_size=500):
     words = text.split()
