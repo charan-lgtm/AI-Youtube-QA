@@ -79,6 +79,18 @@ def search(question, chunks):
     top_indices = scores.argsort()[-3:][::-1]
 
     return [chunks[i] for i in top_indices]
+import time
+
+def safe_get_transcript(video_id):
+    for i in range(3):
+        try:
+            return YouTubeTranscriptApi.get_transcript(video_id)
+        except Exception as e:
+            print(f"Attempt {i+1} failed:", e)
+            time.sleep(2)  # small delay
+
+    return None
+
 
 def Openrouter(question,context):
     OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
