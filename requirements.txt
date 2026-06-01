@@ -4,6 +4,5 @@ requests
 python-dotenv
 numpy
 scikit-learn
-sentence-transformers
 youtube-transcript-api
 
