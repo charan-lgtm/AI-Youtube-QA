@@ -5,13 +5,13 @@ from youtube_transcript_api._errors import NoTranscriptFound, TranscriptsDisable
 import requests
 import os 
 
-import numpy as np
-from urllib.parse import urlparse,parse_qs
-from sentence_transformers import SentenceTransformer
 
+from urllib.parse import urlparse,parse_qs
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 #setup
 load_dotenv()
-model = SentenceTransformer("all-MiniLM-L6-v2")
+
 app = Flask(__name__)
 
 from urllib.parse import urlparse, parse_qs
@@ -36,6 +36,8 @@ def extract_video_id(url):
     return None
 
 #Extract Transcript from video
+from youtube_transcript_api import YouTubeTranscriptApi
+
 def extract_transcript(youtube_url):
     video_id = extract_video_id(youtube_url)
 
@@ -43,30 +45,14 @@ def extract_transcript(youtube_url):
         return None
 
     try:
-        # STEP 1: get ALL available transcripts
-        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+        transcript = YouTubeTranscriptApi().fetch(video_id)
 
-        # STEP 2: try manually created first
-        try:
-            transcript = transcript_list.find_manually_created_transcript(['en'])
-        except:
-            transcript = None
-
-        # STEP 3: fallback to auto-generated
-        if not transcript:
-            for t in transcript_list:
-                transcript = t
-                break
-
-        # STEP 4: fetch safely
-        data = transcript.fetch()
-
-        text = " ".join(item.text for item in data)
+        text = " ".join(
+            item.text if hasattr(item, "text") else item["text"]
+            for item in transcript
+        )
 
         return text
-
-    except (NoTranscriptFound, TranscriptsDisabled):
-        return None
 
     except Exception as e:
         print("Transcript error:", e)
@@ -82,17 +68,21 @@ def chunk_text(text,chunk_size=500):
         chunks.append(chunk)
     return chunks
 
-def build_embeddings(chunks):
-    embeddings = model.encode(chunks).astype("float32")
-    return embeddings
 
-def search(question, chunks, embeddings):
-    q_embedding = model.encode([question]).astype("float32")[0]
 
-    scores = cosine_similarity([q_embedding], embeddings)[0]
+    
+def search(question, chunks):
+    docs = chunks + [question]
 
-    top_k = 3
-    top_indices = scores.argsort()[-top_k:][::-1]
+    vectorizer = TfidfVectorizer(stop_words="english")
+    vectors = vectorizer.fit_transform(docs)
+
+    question_vector = vectors[-1]
+    chunk_vectors = vectors[:-1]
+
+    scores = cosine_similarity(question_vector, chunk_vectors)[0]
+
+    top_indices = scores.argsort()[-3:][::-1]
 
     return [chunks[i] for i in top_indices]
 
@@ -175,14 +165,18 @@ def youtube():
     print("QUESTION:", question)
 
     text=extract_transcript(youtube_url)
+    if not text:
+        return jsonify({
+            "error": "Transcript could not be fetched for this video."
+        }), 400
     print("TRANSCRIPT LENGTH:", len(text))
 
     chunks = chunk_text(text)
     print("NUMBER OF CHUNKS:", len(chunks))
 
-    embeddings = build_embeddings(chunks)
+    
 
-    top_chunks = search(question, chunks, embeddings)
+    top_chunks = search(question,chunks)
 
     print("TOP CHUNK:")
     print(top_chunks[0])
